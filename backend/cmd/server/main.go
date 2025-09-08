@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"meet-backend/internal/auth"
+	"meet-backend/internal/database"
 	"meet-backend/internal/handlers"
 	"meet-backend/internal/middleware"
 
@@ -16,6 +17,11 @@ func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
+	}
+
+	// Initialize database
+	if err := database.InitDatabase(); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
 	// Initialize router

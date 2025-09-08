@@ -6,8 +6,18 @@ import {
   useLocalParticipant,
   VideoTrack,
 } from '@livekit/components-react';
-import { BackgroundBlur, VirtualBackground } from '@livekit/track-processors';
+// Import track processors dynamically to avoid SSR issues
+let BackgroundBlur: any;
+let VirtualBackground: any;
+
+if (typeof window !== 'undefined') {
+  import('@livekit/track-processors').then((module) => {
+    BackgroundBlur = module.BackgroundBlur;
+    VirtualBackground = module.VirtualBackground;
+  });
+}
 import { isLocalTrack, LocalTrackPublication, Track } from 'livekit-client';
+import { DeviceErrorHandler, useDeviceErrorSuppression } from './DeviceErrorHandler';
 import Desk from '../public/background-images/samantha-gades-BlIhVfXbi9s-unsplash.jpg';
 import Nature from '../public/background-images/ali-kazal-tbw_KQE3Cbg-unsplash.jpg';
 
@@ -22,6 +32,24 @@ type BackgroundType = 'none' | 'blur' | 'image';
 
 export function CameraSettings() {
   const { cameraTrack, localParticipant } = useLocalParticipant();
+  
+  // Suppress device-related console errors
+  useDeviceErrorSuppression();
+  
+  // Track if processors are loaded
+  const [processorsLoaded, setProcessorsLoaded] = React.useState(false);
+  
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      import('@livekit/track-processors').then((module) => {
+        BackgroundBlur = module.BackgroundBlur;
+        VirtualBackground = module.VirtualBackground;
+        setProcessorsLoaded(true);
+      }).catch(() => {
+        console.warn('Failed to load track processors, background effects disabled');
+      });
+    }
+  }, []);
   const [backgroundType, setBackgroundType] = React.useState<BackgroundType>(
     (cameraTrack as LocalTrackPublication)?.track?.getProcessor()?.name === 'background-blur'
       ? 'blur'
@@ -51,9 +79,9 @@ export function CameraSettings() {
 
   React.useEffect(() => {
     if (isLocalTrack(cameraTrack?.track)) {
-      if (backgroundType === 'blur') {
+      if (backgroundType === 'blur' && BackgroundBlur) {
         cameraTrack.track?.setProcessor(BackgroundBlur());
-      } else if (backgroundType === 'image' && virtualBackgroundImagePath) {
+      } else if (backgroundType === 'image' && virtualBackgroundImagePath && VirtualBackground) {
         cameraTrack.track?.setProcessor(VirtualBackground(virtualBackgroundImagePath));
       } else {
         cameraTrack.track?.stopProcessor();
@@ -78,13 +106,16 @@ export function CameraSettings() {
       <section className="lk-button-group">
         <TrackToggle source={Track.Source.Camera}>Camera</TrackToggle>
         <div className="lk-button-group-menu">
-          <MediaDeviceMenu kind="videoinput" />
+          <DeviceErrorHandler>
+            <MediaDeviceMenu kind="videoinput" />
+          </DeviceErrorHandler>
         </div>
       </section>
 
-      <div style={{ marginTop: '10px' }}>
-        <div style={{ marginBottom: '8px' }}>Background Effects</div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      {processorsLoaded && (
+        <div style={{ marginTop: '10px' }}>
+          <div style={{ marginBottom: '8px' }}>Background Effects</div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={() => selectBackground('none')}
             className="lk-button"
@@ -168,8 +199,15 @@ export function CameraSettings() {
               </span>
             </button>
           ))}
+          </div>
         </div>
-      </div>
+      )}
+      
+      {!processorsLoaded && typeof window !== 'undefined' && (
+        <div style={{ marginTop: '10px', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>
+          Background effects laden...
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # LiveKit Server
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml --bind 0.0.0.0
+    restart: unless-stopped
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+    environment:
+      - LIVEKIT_KEYS=devkey:secret
+    networks:
+      - livekit-net
+
+  # Redis for LiveKit (optional, for scaling)
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - livekit-net
+
+  # Meet Backend API
+  meet-backend:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - LIVEKIT_API_KEY=devkey
+      - LIVEKIT_API_SECRET=secret
+      - LIVEKIT_URL=ws://livekit:7880
+      - SSO_CLIENT_ID=${SSO_CLIENT_ID}
+      - SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET}
+      - SSO_REDIRECT_URL=${SSO_REDIRECT_URL}
+      - SSO_ISSUER_URL=${SSO_ISSUER_URL}
+      - PORT=8080
+      - GIN_MODE=release
+    depends_on:
+      - livekit
+      - redis
+    networks:
+      - livekit-net
+
+networks:
+  livekit-net:
+    driver: bridge

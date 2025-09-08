@@ -11,6 +11,7 @@ import {
 import styles from '../styles/SettingsMenu.module.css';
 import { CameraSettings } from './CameraSettings';
 import { MicrophoneSettings } from './MicrophoneSettings';
+import { DeviceErrorHandler } from './DeviceErrorHandler';
 /**
  * @alpha
  */
@@ -118,7 +119,9 @@ export function SettingsMenu(props: SettingsMenuProps) {
                 <section className="lk-button-group">
                   <span className="lk-button">Audio Output</span>
                   <div className="lk-button-group-menu">
-                    <MediaDeviceMenu kind="audiooutput"></MediaDeviceMenu>
+                    <DeviceErrorHandler>
+                      <MediaDeviceMenu kind="audiooutput"></MediaDeviceMenu>
+                    </DeviceErrorHandler>
                   </div>
                 </section>
               </>

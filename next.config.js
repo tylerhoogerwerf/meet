@@ -10,8 +10,28 @@ const nextConfig = {
     config.module.rules.push({
       test: /\.mjs$/,
       enforce: 'pre',
-      use: ['source-map-loader'],
+      use: [
+        {
+          loader: 'source-map-loader',
+          options: {
+            filterSourceMappingUrl: (url, resourcePath) => {
+              // Skip source maps for MediaPipe and other problematic packages
+              if (resourcePath.includes('@mediapipe') || 
+                  resourcePath.includes('vision_bundle')) {
+                return false;
+              }
+              return true;
+            },
+          },
+        },
+      ],
     });
+
+    // Ignore missing source map warnings
+    config.ignoreWarnings = [
+      /Failed to parse source map/,
+      /source-map-loader/,
+    ];
 
     return config;
   },

@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Satoshi Font */
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&display=swap');
+
+/* LiveKit Components Styles */
+@import '@livekit/components-styles/dist/index.css';
+
+/* Base styles */
+@layer base {
+  html {
+    font-family: 'Satoshi', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply font-satoshi text-gray-900 bg-white;
+  }
+  
+  * {
+    @apply font-satoshi;
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  .lk-button {
+    @apply font-satoshi font-medium;
+  }
+  
+  .lk-room-container {
+    @apply font-satoshi;
+  }
+  
+  /* Override LiveKit component fonts */
+  .lk-control-bar,
+  .lk-participant-tile,
+  .lk-chat,
+  .lk-prejoin,
+  .lk-media-device-menu {
+    @apply font-satoshi;
+  }
+}
+
+/* Ensure all text uses Satoshi */
+@layer utilities {
+  .font-satoshi {
+    font-family: 'Satoshi', system-ui, sans-serif;
+  }
+}

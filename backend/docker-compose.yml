@@ -1,53 +1,107 @@
-version: '3.8'
-
 services:
-  # LiveKit Server
-  livekit:
-    image: livekit/livekit-server:latest
-    command: --config /etc/livekit.yaml --bind 0.0.0.0
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
     restart: unless-stopped
     ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "7882:7882/udp"
-    volumes:
-      - ./livekit.yaml:/etc/livekit.yaml
+      - "5432:5432"
     environment:
-      - LIVEKIT_KEYS=devkey:secret
+      POSTGRES_DB: meet_backend
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - livekit-net
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d meet_backend"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Redis for LiveKit (optional, for scaling)
+  # Redis Cache
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     networks:
-      - livekit-net
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
-  # Meet Backend API
+  # LiveKit Real-time Server
+  livekit:
+    image: livekit/livekit-server:v1.4.3
+    restart: unless-stopped
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+    command: >
+      --dev
+      --bind=0.0.0.0
+      --port=7880
+      --keys="devkey: secret"
+      --redis-host=redis
+      --redis-host=redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # Meet Backend Application
   meet-backend:
     build: .
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      - LIVEKIT_API_KEY=devkey
-      - LIVEKIT_API_SECRET=secret
-      - LIVEKIT_URL=ws://livekit:7880
-      - SSO_CLIENT_ID=${SSO_CLIENT_ID}
-      - SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET}
-      - SSO_REDIRECT_URL=${SSO_REDIRECT_URL}
-      - SSO_ISSUER_URL=${SSO_ISSUER_URL}
-      - PORT=8080
-      - GIN_MODE=release
+      # LiveKit Configuration
+      LIVEKIT_API_KEY: devkey
+      LIVEKIT_API_SECRET: secret
+      LIVEKIT_URL: ws://livekit:7880
+      
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: meet_backend
+      DB_SSLMODE: disable
+      
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      # Application Configuration
+      PORT: 8080
+      GIN_MODE: release
     depends_on:
-      - livekit
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      livekit:
+        condition: service_started
     networks:
-      - livekit-net
+      - app-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
 
 networks:
-  livekit-net:
+  app-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

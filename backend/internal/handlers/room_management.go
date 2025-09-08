@@ -2,11 +2,10 @@ package handlers
 
 import (
 	"net/http"
-	"strconv"
+
+	"meet-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"meet-backend/internal/services"
 )
 
 type RoomManagementHandler struct {
@@ -46,7 +45,7 @@ func (rmh *RoomManagementHandler) CreateRoom(c *gin.Context) {
 	}
 
 	response := gin.H{
-		"room_id":        room.ID,
+		"room_id":       room.ID,
 		"name":          room.Name,
 		"created_at":    room.CreatedAt,
 		"expires_at":    room.ExpiresAt,
@@ -129,11 +128,11 @@ func (rmh *RoomManagementHandler) JoinRoom(c *gin.Context) {
 
 	response := gin.H{
 		"participant_id": participant.ID,
-		"room_id":       room.ID,
-		"identity":      participant.Identity,
-		"name":          participant.Name,
-		"joined_at":     participant.JoinedAt,
-		"is_guest":      participant.IsGuest,
+		"room_id":        room.ID,
+		"identity":       participant.Identity,
+		"name":           participant.Name,
+		"joined_at":      participant.JoinedAt,
+		"is_guest":       participant.IsGuest,
 	}
 
 	if room.ExpiresAt != nil {
@@ -238,7 +237,7 @@ func (rmh *RoomManagementHandler) ExtendRoom(c *gin.Context) {
 
 	// Get updated room info
 	updatedRoom, _ := rmh.roomService.GetRoomByID(room.ID)
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"message":        "Room extended successfully",
 		"expires_at":     updatedRoom.ExpiresAt,

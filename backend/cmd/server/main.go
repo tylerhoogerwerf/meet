@@ -32,7 +32,12 @@ func main() {
 
 	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		// Check database health
+		if err := database.HealthCheck(); err != nil {
+			c.JSON(500, gin.H{"status": "error", "database": "unhealthy"})
+			return
+		}
+		c.JSON(200, gin.H{"status": "ok", "database": "healthy"})
 	})
 
 	// Initialize auth service
@@ -49,6 +54,7 @@ func main() {
 		os.Getenv("LIVEKIT_API_SECRET"),
 		os.Getenv("LIVEKIT_URL"),
 	)
+	roomManagementHandler := handlers.NewRoomManagementHandler()
 
 	// Auth routes
 	auth := r.Group("/auth")
@@ -56,6 +62,16 @@ func main() {
 		auth.GET("/login", authService.Login)
 		auth.GET("/callback", authService.Callback)
 		auth.POST("/refresh", authService.RefreshToken)
+	}
+
+	// Public room management routes (for guest access)
+	publicRooms := r.Group("/api/public/rooms")
+	{
+		publicRooms.POST("/", roomManagementHandler.CreateRoom)                               // Create room (guest or auth)
+		publicRooms.GET("/:roomName", roomManagementHandler.GetRoom)                          // Get room info
+		publicRooms.POST("/:roomName/join", roomManagementHandler.JoinRoom)                   // Join room
+		publicRooms.POST("/:roomName/leave/:identity", roomManagementHandler.LeaveRoom)       // Leave room
+		publicRooms.GET("/:roomName/participants", roomManagementHandler.GetRoomParticipants) // Get participants
 	}
 
 	// Protected API routes
@@ -67,6 +83,11 @@ func main() {
 		api.DELETE("/rooms/:roomName/participants/:participantId", roomHandler.RemoveParticipant)
 		api.POST("/rooms/:roomName/recording/start", roomHandler.StartRecording)
 		api.POST("/rooms/:roomName/recording/stop", roomHandler.StopRecording)
+
+		// Room management for authenticated users
+		api.POST("/rooms/:roomName/extend", roomManagementHandler.ExtendRoom) // Extend guest room
+		api.DELETE("/rooms/:roomName", roomManagementHandler.DeactivateRoom)  // Deactivate room
+		api.GET("/rooms/:roomName/stats", roomManagementHandler.GetRoomStats) // Room statistics
 	}
 
 	port := os.Getenv("PORT")
